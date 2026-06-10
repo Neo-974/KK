@@ -25,11 +25,13 @@ def create_app():
     from .api.templates import templates_bp
     from .api.posts import posts_bp
     from .api.watch import watch_bp
+    from .api.ai import ai_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(templates_bp, url_prefix="/api/templates")
     app.register_blueprint(posts_bp, url_prefix="/api/posts")
     app.register_blueprint(watch_bp, url_prefix="/api/watch")
+    app.register_blueprint(ai_bp, url_prefix="/api/ai")
 
     @app.route("/api/health")
     def health():
@@ -40,4 +42,24 @@ def create_app():
 
         db.create_all()
 
+    start_scheduler(app)
+
     return app
+
+
+def start_scheduler(app):
+    """Veille automatique : lit les flux RSS toutes les 30 minutes."""
+    if os.environ.get("DISABLE_SCHEDULER") == "1":
+        return
+
+    from apscheduler.schedulers.background import BackgroundScheduler
+
+    from .services.watch import fetch_all_sources
+
+    def job():
+        with app.app_context():
+            fetch_all_sources()
+
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.add_job(job, "interval", minutes=30, id="rss_watch")
+    scheduler.start()

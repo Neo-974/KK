@@ -3,8 +3,17 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ..extensions import db
 from ..models import Notification, WatchSource
+from ..services.watch import fetch_all_sources
 
 watch_bp = Blueprint("watch", __name__)
+
+
+@watch_bp.route("/fetch", methods=["POST"])
+@jwt_required()
+def fetch_now():
+    """Lance manuellement la lecture de tous les flux RSS."""
+    new_count = fetch_all_sources()
+    return jsonify({"new_notifications": new_count})
 
 
 @watch_bp.route("/sources", methods=["GET"])

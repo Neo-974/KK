@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 
 export default function Watch() {
+  const navigate = useNavigate();
   const [sources, setSources] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [form, setForm] = useState({ name: '', url: '' });
+  const [fetching, setFetching] = useState(false);
+  const [generatingId, setGeneratingId] = useState(null);
+  const [error, setError] = useState('');
 
   const load = () => {
     client.get('/watch/sources').then((r) => setSources(r.data));
@@ -32,9 +37,49 @@ export default function Watch() {
     load();
   };
 
+  const refresh = async () => {
+    setFetching(true);
+    setError('');
+    try {
+      await client.post('/watch/fetch');
+      load();
+    } catch {
+      setError('Erreur lors de la lecture des flux.');
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const generatePost = async (notification) => {
+    setGeneratingId(notification.id);
+    setError('');
+    try {
+      const { data } = await client.post('/ai/generate-post', {
+        notification_id: notification.id,
+      });
+      await client.post('/posts', { content: data.content, networks: [] });
+      navigate('/calendrier');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Erreur lors de la génération du post.');
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Veille automatisée</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Veille automatisée</h1>
+        <button
+          onClick={refresh}
+          disabled={fetching}
+          className="bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 disabled:opacity-50"
+        >
+          {fetching ? 'Lecture en cours…' : 'Actualiser la veille'}
+        </button>
+      </div>
+
+      {error && <p className="text-red-600 mb-4">{error}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
@@ -84,7 +129,7 @@ export default function Watch() {
           <h2 className="text-xl font-semibold mb-4">Alertes détectées</h2>
           {notifications.length === 0 && (
             <p className="text-gray-400">
-              Aucune alerte. La détection automatique arrive en v0.2.
+              Aucune alerte. Ajoutez une source puis cliquez sur « Actualiser la veille ».
             </p>
           )}
           {notifications.map((n) => (
@@ -100,14 +145,23 @@ export default function Watch() {
               <p className="text-sm text-gray-500">
                 {n.source_name} — {n.detected_at && new Date(n.detected_at).toLocaleString('fr-FR')}
               </p>
-              {!n.is_read && (
+              <div className="flex gap-4 mt-1">
                 <button
-                  onClick={() => markRead(n.id)}
-                  className="text-blue-700 text-sm hover:underline"
+                  onClick={() => generatePost(n)}
+                  disabled={generatingId === n.id}
+                  className="text-green-700 text-sm font-medium hover:underline disabled:opacity-50"
                 >
-                  Marquer comme lu
+                  {generatingId === n.id ? 'Génération…' : '✨ Générer un post avec l’IA'}
                 </button>
-              )}
+                {!n.is_read && (
+                  <button
+                    onClick={() => markRead(n.id)}
+                    className="text-blue-700 text-sm hover:underline"
+                  >
+                    Marquer comme lu
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
