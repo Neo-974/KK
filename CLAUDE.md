@@ -71,6 +71,15 @@ npm run dev
   claire (exceptions Anthropic → messages en français) et ne pas casser
   l'interface `generate_post()` utilisée par le routeur.
 
+## Interface (frontend)
+
+- **Animations : toujours utiliser `framer-motion`** (déjà installé) plutôt que
+  du CSS d'animation manuel — via `motion.*`
+  (`import { motion } from "framer-motion"`).
+- **Composants UI : privilégier le connecteur MCP `21st`** pour chercher ou
+  générer des composants React prêts à l'emploi (boutons, cartes, formulaires…)
+  avant d'en coder un à la main.
+
 ## Bonnes pratiques de travail
 
 - Développer sur une **branche**, jamais directement sur la principale.
